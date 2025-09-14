@@ -15,8 +15,16 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
+
+import java.util.Collection;
+
+import static org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor.FILTER_EXPRESSION;
 import static org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID;
 
 /**
@@ -25,18 +33,18 @@ import static org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID;
  * @date 2025/09/04 15:56
  */
 @Service
-public class BoardGameServiceImpl implements BoardGameService{
+public class BoardGameServiceImpl implements BoardGameService {
 
     private static final Logger log =
             LoggerFactory.getLogger(BoardGameServiceImpl.class);
 
 
-    private  ChatClient chatClient;
-    private  GameRulesService gameRulesService;
-    private  VectorStore vectorStore;
+    private ChatClient chatClient;
+    private GameRulesService gameRulesService;
+    private VectorStore vectorStore;
 
 
-    public BoardGameServiceImpl(ChatClient.Builder chatClientBuilder, GameRulesService gameRulesService){
+    public BoardGameServiceImpl(ChatClient.Builder chatClientBuilder, GameRulesService gameRulesService) {
         ChatOptions chatOptions = ChatOptions.builder()
                 .model("gpt-4o-mini")
                 .build();
@@ -44,7 +52,7 @@ public class BoardGameServiceImpl implements BoardGameService{
         this.gameRulesService = gameRulesService;
     }
 
-    public BoardGameServiceImpl(ChatClient.Builder chatClientBuilder,VectorStore vectorStore,ChatMemory chatMemory) {
+    public BoardGameServiceImpl(ChatClient.Builder chatClientBuilder, VectorStore vectorStore, ChatMemory chatMemory) {
         this.chatClient = chatClientBuilder
                 .defaultAdvisors(
                         MessageChatMemoryAdvisor.builder(chatMemory).build())
@@ -59,14 +67,14 @@ public class BoardGameServiceImpl implements BoardGameService{
 //    Resource questionPromptTemplate;
 
     private static final String questionPromptTemplate = """ 
-          You are a helpful assistant, answering questions about tabletop games.
-          If you don't know anything about the game or don't know the answer,
-          say "I don't know". 
-
-          The game is {game}.
-
-          The question is: {question}.
-          """;
+            You are a helpful assistant, answering questions about tabletop games.
+            If you don't know anything about the game or don't know the answer,
+            say "I don't know". 
+            
+            The game is {game}.
+            
+            The question is: {question}.
+            """;
 
     @Override
     public Answer askQuestion(Question question) {
@@ -75,13 +83,13 @@ public class BoardGameServiceImpl implements BoardGameService{
 
         // responseEntity is a ResponseEntity<ChatResponse, Answer>
         var responseEntity = chatClient.prompt()
-        .system(systemSpec -> systemSpec
-                .text(promptTemplate)
-                .param("gameTitle", question.gameTitle())
-                .param("rules", gameRules))
-        .user(question.question())
-        .call()
-        .responseEntity(Answer.class);
+                .system(systemSpec -> systemSpec
+                        .text(promptTemplate)
+                        .param("gameTitle", question.gameTitle())
+                        .param("rules", gameRules))
+                .user(question.question())
+                .call()
+                .responseEntity(Answer.class);
 
         ChatResponse response = responseEntity.response();
         ChatResponseMetadata metadata = response.getMetadata();
@@ -115,7 +123,7 @@ public class BoardGameServiceImpl implements BoardGameService{
     @Override
     public Answer askQuestionForChatMemory(Question question, String conversationId) {
         String gameNameMatch = String.format(
-                "gameTitle == '%s'",question.gameTitle());
+                "gameTitle == '%s'", question.gameTitle());
 
         return chatClient.prompt()
                 .system(systemSpec -> systemSpec
@@ -123,10 +131,82 @@ public class BoardGameServiceImpl implements BoardGameService{
                         .param("gameTitle", question.gameTitle()))
                 .user(question.question())
                 .advisors(advisorSpec -> advisorSpec
-                        .param(QuestionAnswerAdvisor.FILTER_EXPRESSION, gameNameMatch)
+                        .param(FILTER_EXPRESSION, gameNameMatch)
                         .param(CONVERSATION_ID, 50))
-                        .call()
+                .call()
                 .entity(Answer.class);
+    }
+
+    public Answer askQuestionForSecurity(Question question, String conversationId) {
+        return chatClient.prompt()
+                .user(question.question())
+                .system(systemSpec -> systemSpec
+                        .text(promptTemplate)
+                        .param("gameTitle", question.gameTitle()))
+                .advisors(advisorSpec -> advisorSpec
+                        .param(FILTER_EXPRESSION,
+                                getDocumentMatchExpression(question.gameTitle()))
+                        .param(CONVERSATION_ID, conversationId))
+                .call()
+                .entity(Answer.class);
+    }
+
+    @Value("classpath:/promptTemplates/summarizeSystemPrompt.st")
+    Resource summaryPromptTemplate;
+
+    @Override
+    public Answer summarizeRules(String text) {
+        return chatClient.prompt()
+                .system(system ->
+                        system.text(summaryPromptTemplate))
+                .user(userSpec -> userSpec
+                        .text("Summarize these rules: {gameRules}")
+                        .param("gameRules", text))
+                .call()
+        .entity(Answer.class);
+    }
+
+    @Override
+    public Answer askQuestion(Question question,
+                              Resource image,
+                              String imageContentType,
+                              String conversationId) {
+        String gameNameMatch = String.format(
+                "gameTitle == '%s'",
+                question.gameTitle());
+
+        MimeType mediaType = MimeTypeUtils.parseMimeType(imageContentType);
+
+        return chatClient.prompt()
+                .user(userSpec -> userSpec
+                        .text(question.question())
+                        .media(mediaType, image))
+                .system(systemSpec -> systemSpec
+                        .text(promptTemplate)
+                        .param("gameTitle", question.gameTitle()))
+                .advisors(advisorSpec -> advisorSpec
+                        .param(FILTER_EXPRESSION, gameNameMatch)
+                        .param(CONVERSATION_ID, conversationId))
+                .call()
+                .entity(Answer.class);
+    }
+
+
+    private String getDocumentMatchExpression(String gameTitle) {
+        return String.format("gameTitle == '%s' %s",
+                gameTitle,
+                getPremiumContentFilterExpression());
+    }
+
+    private static String getPremiumContentFilterExpression() {
+        Collection<? extends GrantedAuthority> authorities =
+                SecurityContextHolder.getContext().getAuthentication().getAuthorities();
+
+        if (!authorities.stream().anyMatch(
+                a -> a.getAuthority().equals("ROLE_PREMIUM_USER"))) {
+            return "AND documentType != 'PREMIUM'";
+        }
+        return "";
     }
 
 }

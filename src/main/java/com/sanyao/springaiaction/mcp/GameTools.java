@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.context.annotation.Description;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -35,6 +36,7 @@ public class GameTools
     }
 
     @Override
+//    @PreAuthorize("hasRole('PREMIUM_USER')")
     public GameComplexityResponse apply( GameComplexityRequest gameDataRequest) {
         String gameSlug = gameDataRequest.title()
                 .toLowerCase()
@@ -56,5 +58,17 @@ public class GameTools
         return new GameComplexityResponse(
                 game.title());
     }
+
+
+    @Tool(name = "getGameComplexity",
+            description = "Returns a game's complexity/difficulty " + "given the game's title/name.")
+    @PreAuthorize("hasRole('PREMIUM_USER')")
+    public GameComplexityResponse getGameComplexity(
+            @ToolParam(description="The title of the game")
+            String gameTitle) {
+        return null;
+    }
+
+
 
 }

@@ -20,7 +20,7 @@ public class AskController {
 
     private final BoardGameService boardGameService;
 
-    public AskController(BoardGameService boardGameService){
+    public AskController(BoardGameService boardGameService) {
         this.boardGameService = boardGameService;
     }
 
@@ -29,13 +29,13 @@ public class AskController {
 //        return this.boardGameService.askQuestion(question);
 //    }
 
-    @PostMapping(path="/ask", produces="application/json")
+    @PostMapping(path = "/ask", produces = "application/json")
     public Answer ask(@RequestBody @Valid Question question) {
         return boardGameService.askQuestion(question);
     }
 
 
-    @PostMapping(path="/askFlux", produces="application/ndjson")
+    @PostMapping(path = "/askFlux", produces = "application/ndjson")
     public Answer askFlux(@RequestBody @Valid Question question) {
         return boardGameService.askQuestion(question);
     }
@@ -43,7 +43,7 @@ public class AskController {
 
     @PostMapping(path = "/askChatMemory", produces = "application/json")
     public Answer askChatMemory(
-            @RequestHeader(name="X_AI_CONVERSATION_ID",
+            @RequestHeader(name = "X_AI_CONVERSATION_ID",
                     defaultValue = "default") String conversationId,
             @RequestBody @Valid Question question) {
         return boardGameService.askQuestionForChatMemory(question, conversationId);

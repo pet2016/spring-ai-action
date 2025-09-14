@@ -4,7 +4,11 @@ import com.sanyao.springaiaction.entity.Answer;
 import com.sanyao.springaiaction.entity.Question;
 import com.sanyao.springaiaction.mcp.GameTools;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.core.io.Resource;
 import reactor.core.publisher.Flux;
+
+import static org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor.FILTER_EXPRESSION;
+import static org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID;
 
 /**
  * @author by a123
@@ -39,5 +43,21 @@ public class BoradGameToolServiceImpl implements BoardGameService{
                 .tools(gameTools)
                 .call()
                 .entity(Answer.class);
+    }
+
+    @Override
+    public Answer askQuestionForSecurity(Question question, String conversationId) {
+        return null;
+    }
+
+    @Override
+    public Answer summarizeRules(String text) {
+        return null;
+    }
+
+
+    @Override
+    public Answer askQuestion(Question question, Resource image, String imageContentType, String conversationId) {
+        return null;
     }
 }

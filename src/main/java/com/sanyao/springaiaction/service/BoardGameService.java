@@ -2,6 +2,7 @@ package com.sanyao.springaiaction.service;
 
 import com.sanyao.springaiaction.entity.Question;
 import com.sanyao.springaiaction.entity.Answer;
+import org.springframework.core.io.Resource;
 import reactor.core.publisher.Flux;
 
 /**
@@ -16,4 +17,13 @@ public interface BoardGameService {
     Flux<String> askQuestionFlux(Question question);
 
     Answer askQuestionForChatMemory(Question question, String conversationId);
+
+    Answer askQuestionForSecurity(Question question, String conversationId);
+
+    Answer summarizeRules(String text);
+
+    Answer askQuestion(Question question,
+                       Resource image,
+                       String imageContentType,
+                       String conversationId);
 }
