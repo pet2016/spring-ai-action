@@ -14,4 +14,6 @@ public interface BoardGameService {
     Answer askQuestion(Question question);
 
     Flux<String> askQuestionFlux(Question question);
+
+    Answer askQuestionForChatMemory(Question question, String conversationId);
 }

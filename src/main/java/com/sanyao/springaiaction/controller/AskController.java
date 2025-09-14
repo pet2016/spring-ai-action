@@ -5,6 +5,7 @@ import com.sanyao.springaiaction.entity.Question;
 import com.sanyao.springaiaction.service.BoardGameService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
@@ -39,5 +40,13 @@ public class AskController {
         return boardGameService.askQuestion(question);
     }
 
+
+    @PostMapping(path = "/askChatMemory", produces = "application/json")
+    public Answer askChatMemory(
+            @RequestHeader(name="X_AI_CONVERSATION_ID",
+                    defaultValue = "default") String conversationId,
+            @RequestBody @Valid Question question) {
+        return boardGameService.askQuestionForChatMemory(question, conversationId);
+    }
 
 }
